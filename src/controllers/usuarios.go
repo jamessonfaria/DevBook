@@ -4,38 +4,43 @@ import (
 	"api/src/banco"
 	"api/src/modelos"
 	"api/src/repositorios"
+	"api/src/respostas"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
-	"log"
 	"net/http"
 )
 
 // CriarUsuario cria um usuario no banco
 func CriarUsuario(w http.ResponseWriter, r *http.Request) {
 	corpoRequest, erro := io.ReadAll(r.Body)
+	erro = errors.New("deu merlinnnn")
 	if erro != nil {
-		log.Fatal(erro)
+		respostas.Error(w, http.StatusUnprocessableEntity, erro)
 		return
 	}
 
 	var usuario modelos.Usuario
 	if erro = json.Unmarshal(corpoRequest, &usuario); erro != nil {
-		log.Fatal(erro)
+		respostas.Error(w, http.StatusBadRequest, erro)
+		return
 	}
 
 	db, erro := banco.Conectar()
 	if erro != nil {
-		log.Fatal(erro)
+		respostas.Error(w, http.StatusInternalServerError, erro)
+		return
 	}
+	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioUsuarios(db)
-	usuarioID, erro := repositorio.Criar(usuario)
+	usuario.ID, erro = repositorio.Criar(usuario)
 	if erro != nil {
-		log.Fatal(erro)
+		respostas.Error(w, http.StatusInternalServerError, erro)
+		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Usuario inserido: %d", usuarioID)))
+	respostas.JSON(w, http.StatusCreated, usuario)
 }
 
 // BuscarUsuarios busca todos os usuarios do banco
