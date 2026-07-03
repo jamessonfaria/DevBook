@@ -6,7 +6,6 @@ import (
 	"api/src/repositorios"
 	"api/src/respostas"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 )
@@ -14,7 +13,6 @@ import (
 // CriarUsuario cria um usuario no banco
 func CriarUsuario(w http.ResponseWriter, r *http.Request) {
 	corpoRequest, erro := io.ReadAll(r.Body)
-	erro = errors.New("deu merlinnnn")
 	if erro != nil {
 		respostas.Error(w, http.StatusUnprocessableEntity, erro)
 		return
@@ -22,6 +20,11 @@ func CriarUsuario(w http.ResponseWriter, r *http.Request) {
 
 	var usuario modelos.Usuario
 	if erro = json.Unmarshal(corpoRequest, &usuario); erro != nil {
+		respostas.Error(w, http.StatusBadRequest, erro)
+		return
+	}
+
+	if erro = usuario.Preparar(); erro != nil {
 		respostas.Error(w, http.StatusBadRequest, erro)
 		return
 	}
