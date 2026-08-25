@@ -68,7 +68,7 @@ func (repositorio usuarios) Buscar(nomeOuNick string) ([]modelos.Usuario, error)
 	defer linhas.Close()
 
 	var usuarios []modelos.Usuario
-	for linhas.Next(){
+	for linhas.Next() {
 		var usuario modelos.Usuario
 		if erro = linhas.Scan(
 			&usuario.ID,
@@ -109,4 +109,19 @@ func (repositorio usuarios) BuscarPorID(ID uint64) (modelos.Usuario, error) {
 	}
 
 	return usuario, nil
+}
+
+// Deletar exclui usuarios do banco de dados
+func (repositorio *usuarios) Deletar(ID uint64) error {
+	statment, erro := repositorio.db.Prepare("delete from usuarios where id = ?")
+	if erro != nil {
+		return erro
+	}
+	defer statment.Close()
+
+	if _, erro = statment.Exec(ID); erro != nil {
+		return erro
+	}
+
+	return nil
 }
