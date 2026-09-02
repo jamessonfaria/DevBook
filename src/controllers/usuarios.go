@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"api/src/autenticacao"
 	"api/src/banco"
 	"api/src/modelos"
 	"api/src/repositorios"
 	"api/src/respostas"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -50,8 +52,8 @@ func CriarUsuario(w http.ResponseWriter, r *http.Request) {
 	respostas.JSON(w, http.StatusCreated, usuario)
 }
 
-// BuscarUsuarios busca todos os usuarios do banco
-func BuscarUsuarios(w http.ResponseWriter, r *http.Request) {
+// BuscarUsuarios busca um usuario especifico no banco
+func BuscarUsuarioID(w http.ResponseWriter, r *http.Request) {
 	nomeOuNick := strings.ToLower(r.URL.Query().Get("usuario"))
 	db, erro := banco.Conectar()
 	if erro != nil {
@@ -68,8 +70,8 @@ func BuscarUsuarios(w http.ResponseWriter, r *http.Request) {
 	respostas.JSON(w, http.StatusOK, usuarios)
 }
 
-// BuscarUsuario busca um usuario especifico no banco
-func BuscarUsuario(w http.ResponseWriter, r *http.Request) {
+// BuscarUsuarioID busca todos os usuarios do banco
+func BuscarUsuarios(w http.ResponseWriter, r *http.Request) {
 	parametros := mux.Vars(r)
 
 	usuarioID, erro := strconv.ParseUint(parametros["usuarioId"], 10, 64)
@@ -77,7 +79,15 @@ func BuscarUsuario(w http.ResponseWriter, r *http.Request) {
 		respostas.Error(w, http.StatusBadRequest, erro)
 		return
 	}
-		db, erro := banco.Conectar()
+	
+	valido, erroMessage, status := validaUsuarioID(usuarioID, r, 
+	"Não e possivel buscar um usuario que nao e o seu")
+	if !valido {
+		respostas.Error(w, status, errors.New(erroMessage))
+		return
+	}
+	
+	db, erro := banco.Conectar()
 	if erro != nil {
 		respostas.Error(w, http.StatusInternalServerError, erro)
 		return
@@ -101,6 +111,13 @@ func AtualizarUsuario(w http.ResponseWriter, r *http.Request) {
 	usuarioID, erro := strconv.ParseUint(parametros["usuarioId"], 10, 64)
 	if erro != nil {
 		respostas.Error(w, http.StatusBadRequest, erro)
+		return
+	}
+
+	valido, erroMessage, status := validaUsuarioID(usuarioID, r, 
+		"Não e possivel atualizar um usuario que nao e o seu")
+	if !valido {
+		respostas.Error(w, status, errors.New(erroMessage))
 		return
 	}
 
@@ -146,6 +163,13 @@ func DeletarUsuario(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	valido, erroMessage, status := validaUsuarioID(usuarioID, r, 
+		"Não e possivel excluir um usuario que nao e o seu")
+	if !valido {
+		respostas.Error(w, status, errors.New(erroMessage))
+		return
+	}
+
 	db, erro := banco.Conectar()
 	if erro != nil {
 		respostas.Error(w, http.StatusInternalServerError, erro)
@@ -160,4 +184,18 @@ func DeletarUsuario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respostas.JSON(w, http.StatusNoContent, nil)
+}
+
+// validaUsuarioID se existe algum erro de validacao para o usuarioID
+func validaUsuarioID(usuarioID uint64, r *http.Request, message string) (valido bool, errorMessage string, status int) {
+	usuarioIDNoToken, erro := autenticacao.ExtrairUsuarioID(r)
+	if erro != nil {
+		return false, erro.Error(), http.StatusUnauthorized
+	}
+
+	if usuarioID != usuarioIDNoToken {
+		return false, message, http.StatusForbidden
+	}
+
+	return true, "", 0
 }
